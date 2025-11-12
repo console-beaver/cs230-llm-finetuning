@@ -31,7 +31,7 @@ def clean_test_str(test):
         gold = ''
         if idx != -1:
             gold = line[idx+3:].rstrip()
-            line = '\"' + line[:idx].rstrip() + '\",'
+            line = '\"' + line[:idx].rstrip().replace('"', '\'') + '\",'
         if line:
             result.append('        (' + line + ' ' + gold + '),')
     output = f"""{first_line}
@@ -46,9 +46,9 @@ def clean_test_str(test):
             correct += int(res == gold)
         except:
             error += 1
-    print('stdout=', correct, error, len(test_cases), flush=True)
+    print(correct, error, len(test_cases), flush=True)
 """
-    return output
+    return output, len(result)
 
 def evaluate_problem(model, tokenizer, problem):
     times = dict()
@@ -76,12 +76,12 @@ def evaluate_problem(model, tokenizer, problem):
     code = clean_code_str(code)
 
     stdout = None
+    contents = code + '\n\n'
+    cleaned_test, num_tests = clean_test_str(problem['test'])
+    contents += cleaned_test
+    contents += '\n\nif __name__ == \'__main__\': check(' + problem['entry_point'] + ')'
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=True) as f:
-        f.write(code)
-        f.write('\n\n')
-        f.write(clean_test_str(problem['test']))
-        f.write('\n\nif __name__ == \'__main__\':')
-        f.write('\tcheck(' + problem['entry_point'] + ')\n')
+        f.write(contents)
         f.flush()
 
         start = time.time()
@@ -94,7 +94,9 @@ def evaluate_problem(model, tokenizer, problem):
         times['evaluate'] = time.time() - start
         stdout = result.stdout
 
-    return output, inputs, times, stdout
+    if stdout == '':  # SLM generated code with syntax error
+        stdout = num_tests
+    return contents, inputs, times, stdout
 
 if __name__ == '__main__':
     print('loading dataset...')
@@ -113,10 +115,15 @@ if __name__ == '__main__':
 
     idx = random.randint(0, len(dataset['train']) - 1)
     problem = dataset['train'][idx]
-    model_out, _, times, stdout = evaluate_problem(model, tokenizer, problem)
-    stdout = [int(x) for x in stdout.split()[1:]]
-
     print('testing train at idx', idx)
     print('evaluated problem', problem['difficulty'], problem['task_id'], problem['question_id'])
+
+    contents, _, times, stdout = evaluate_problem(model, tokenizer, problem)
     print('finished generation in', times['generate'], 'seconds, eval took', times['evaluate'], 'seconds')
+
+    if type(stdout) == int:
+        print('SLM wrote code with a syntax error, it had', stdout, 'tests')
+        exit(1)
+    stdout = [int(x) for x in stdout.split()]
+
     print(f'correct = {stdout[0]}/{stdout[2]}, raised errors = {stdout[1]}')

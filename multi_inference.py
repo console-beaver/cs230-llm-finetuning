@@ -29,28 +29,14 @@ if __name__ == '__main__':
     errors = np.zeros((n), dtype=int)
     total = np.zeros((n), dtype=int)
 
-    # for i, problem in tqdm(enumerate(combined_dataset), total=n):
-    i = 0
-    while True:
-        print(i)
-        if i == 10: break
-        problem = combined_dataset[random.randint(0, n - 1)]
-        model_out, _, times, stdout = evaluate_problem(model, tokenizer, problem)
-        if len(stdout) > len('stdout= '):
-            processed = [int(x) for x in stdout.split()[1:]]
-            if len(processed) == 3:
-                correct[i] = processed[0]
-                errors[i] = processed[1]
-                total[i] = processed[2]
-        if total[i] > 0: i += 1  # valid out
+    for i, problem in tqdm(enumerate(combined_dataset), total=n):
+        _, _, times, stdout = evaluate_problem(model, tokenizer, problem)
+        if type(stdout) == int: errors[i] = total[i] = stdout  # syntax error
+        else: correct[i], errors[i], total[i] = [int(x) for x in stdout.split()
 
-    valid_mask = total != 0
-    pass_percentage = correct[valid_mask] / total[valid_mask]
-    error_percentage = errors[valid_mask] / total[valid_mask]
+    pass_percentage = correct / total
+    error_percentage = errors / total
     print('mean % passed: ', np.mean(pass_percentage) * 100, '%')
     print('std % passed:  ', np.std(pass_percentage))
     print('mean % errored:', np.mean(error_percentage) * 100, '%')
     print('std % errored: ', np.std(error_percentage))
-    print(correct[:10])
-    print(errors[:10])
-    print(total[:10])
