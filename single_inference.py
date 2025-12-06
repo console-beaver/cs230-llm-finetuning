@@ -8,7 +8,7 @@ import sys
 import time
 import tempfile
 
-TIMEOUT = 3  # seconds
+TIMEOUT = 10  # seconds
 
 def clean_code_str(code):
     lines = code.splitlines()
@@ -85,14 +85,19 @@ def evaluate_problem(model, tokenizer, problem):
         f.flush()
 
         start = time.time()
-        result = subprocess.run(
-            [sys.executable, f.name],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        times['evaluate'] = time.time() - start
-        stdout = result.stdout
+        try:
+            result = subprocess.run(
+                [sys.executable, f.name],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=TIMEOUT
+            )
+            times['evaluate'] = time.time() - start
+            stdout = result.stdout
+        except subprocess.TimeoutExpired as e:
+            times['evaluate'] = time.time() - start
+            stdout = num_tests
 
     if stdout == '':  # SLM generated code with syntax error
         stdout = num_tests
@@ -116,14 +121,15 @@ if __name__ == '__main__':
     idx = random.randint(0, len(dataset['train']) - 1)
     problem = dataset['train'][idx]
     print('testing train at idx', idx)
-    print('evaluated problem', problem['difficulty'], problem['task_id'], problem['question_id'])
+    print('evaluating problem', problem['difficulty'], problem['task_id'], problem['question_id'])
 
     contents, _, times, stdout = evaluate_problem(model, tokenizer, problem)
     print('finished generation in', times['generate'], 'seconds, eval took', times['evaluate'], 'seconds')
 
-    if type(stdout) == int:
+    if times['evaluate'] >= TIMEOUT:
+        print('SLM code timed out')
+    elif type(stdout) == int:
         print('SLM wrote code with a syntax error, it had', stdout, 'tests')
-        exit(1)
-    stdout = [int(x) for x in stdout.split()]
-
-    print(f'correct = {stdout[0]}/{stdout[2]}, raised errors = {stdout[1]}')
+    else:
+        stdout = [int(x) for x in stdout.split()]
+        print(f'correct = {stdout[0]}/{stdout[2]}, raised errors = {stdout[1]}')
