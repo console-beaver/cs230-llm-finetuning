@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# THIS IS A TESTING SCRIPT
+# which loads the Liquid SLM, generates an answer for a random leetcode problem
+# in the training set, then evaluates the runtime/correctness of the output
+
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from datasets import load_dataset
 import random
@@ -14,8 +18,8 @@ def clean_code_str(code):
     lines = code.splitlines()
     lines = lines[1:]
     cutoff = next((i for i, line in enumerate(lines) if '```' in line), None)
-    if cutoff is not None:
-        lines = lines[:cutoff]
+    if cutoff is not None: lines = lines[:cutoff]
+    lines = [line if 'print' not in line else '' for line in lines]
     return '\n'.join(lines)
 
 def clean_test_str(test):
@@ -80,6 +84,7 @@ def evaluate_problem(model, tokenizer, problem):
     cleaned_test, num_tests = clean_test_str(problem['test'])
     contents += cleaned_test
     contents += '\n\nif __name__ == \'__main__\': check(' + problem['entry_point'] + ')'
+    # with open('tempfile' + str(problem['question_id']) + '.py', 'w') as f:
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=True) as f:
         f.write(contents)
         f.flush()
