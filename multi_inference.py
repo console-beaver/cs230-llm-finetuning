@@ -16,7 +16,7 @@ import time
 import subprocess
 import sys
 
-def evaluate_problem_eval(model, tokenizer, problem, code):
+def evaluate_problem_eval(problem, code):
     times = dict()
     contents = code + '\n\n'
     cleaned_test, num_tests = clean_test_str(problem['test'])
@@ -61,7 +61,8 @@ if __name__ == '__main__':
     print('loaded model')
     print('iterating through data...')
 
-    combined_dataset = concatenate_datasets([dataset['train'], dataset['test']])
+    # combined_dataset = concatenate_datasets([dataset['train'], dataset['test']])
+    dataset = dataset['test']
 
     n = len(combined_dataset)
     correct = np.zeros((n), dtype=int)
@@ -89,7 +90,7 @@ if __name__ == '__main__':
         for j, (problem, output) in enumerate(zip(batch, outputs)):
             code = tokenizer.decode(output[inputs['input_ids'][j].shape[-1]:], skip_special_tokens=True)
             code = clean_code_str(code)
-            _, times, stdout = evaluate_problem_eval(model, tokenizer, problem, code)
+            _, times, stdout = evaluate_problem_eval(problem, code)
 
             idx = i + j
             if times['evaluate'] >= 10: timelimit[idx] = total[idx] = stdout  # TLE
